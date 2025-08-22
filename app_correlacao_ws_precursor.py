@@ -334,6 +334,12 @@ else:
     }
     """)
 
+    # Adiciona painel de configuração da física interativo
+    net.show_buttons(filter_=['physics'])
+    
+    # Renderizar
+    net.save_graph("graph.html")
+    st.components.v1.html(open("graph.html").read(), height=800, scrolling=True)
 
     # salvar HTML temporário e incorporar
     html_path = "graph_prec_ws.html"
