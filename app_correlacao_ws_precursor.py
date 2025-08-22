@@ -21,6 +21,32 @@ if uploaded is None:
 
 TRIPLE_SHEET = "Triple_map"
 
+try:
+    # Lê somente a aba Triple_map
+    df = pd.read_excel(uploaded, sheet_name=TRIPLE_SHEET)
+except ValueError as e:
+    st.error(f"Não encontrei a aba '{TRIPLE_SHEET}' no arquivo enviado. "
+             f"Abra seu Excel e confirme que existe exatamente uma aba com este nome.")
+    st.stop()
+except Exception as e:
+    st.error(f"Erro ao ler a planilha: {e}")
+    st.stop()
+
+# Validação mínima das colunas necessárias
+required_cols = {"Report", "Text", "Top_WS", "Top_Precursores"}
+missing = required_cols - set(df.columns)
+if missing:
+    st.error(f"A aba '{TRIPLE_SHEET}' não contém as colunas mínimas {missing}. "
+             f"Verifique a geração do arquivo.")
+    st.stop()
+
+# Garante colunas opcionais para não quebrar o resto do app
+for c in ["Unit", "Page", "Evidencia"]:
+    if c not in df.columns:
+        df[c] = np.nan
+
+st.success(f"Aba '{TRIPLE_SHEET}' carregada com {len(df):,} linhas.")
+
 # Esperado: colunas criadas no bloco 'Triple_map' (ou equivalente)
 # ["Report","Unit","Page","Text","Top_WS","Top_Precursores","Evidencia"]
 expected = {"Report","Text","Top_WS","Top_Precursores"}
