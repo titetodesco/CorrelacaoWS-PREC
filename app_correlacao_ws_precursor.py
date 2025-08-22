@@ -514,14 +514,17 @@ else:
                 G2.add_node(
                     p_id,
                     label=f"{prec} [{hto}]",
-                    =(f"<b>Precursor</b>: {prec} [{hto}]<br>"
-                           f"Frequência: {freq}<br>"
-                           f"sim med/máx: {r['Prec_Sim_med']:.2f}/{r['Prec_Sim_max']:.2f}"),
+                    title=(
+                        f"{prec} [{hto}]\n"
+                        f"Frequência: {freq}\n"
+                        f"sim med/máx: {r['Prec_Sim_med']:.2f}/{r['Prec_Sim_max']:.2f}"
+                    ),
                     color=color,
                     shape="dot",
                     size=float(size),
                     node_type="precursor",
                 )
+
 
                 edge_title = f"{sel_report} → {prec} [{hto}] (freq {freq})"
                 G2.add_edge(rep_id, p_id, value=freq, width=float(1 + np.log1p(freq)), title=edge_title)
