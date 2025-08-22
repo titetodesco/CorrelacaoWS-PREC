@@ -304,30 +304,36 @@ else:
 
     # habilita physics e interação
     net.set_options("""
-    const options = {
-      nodes: {
-        borderWidth: 1,
-        shadow: false
+    {
+      "nodes": {
+        "borderWidth": 1,
+        "shadow": false
       },
-      edges: {
-        smooth: { type: "dynamic", roundness: 0.5 },
-        color: { opacity: 0.7 }
+      "edges": {
+        "smooth": { "type": "dynamic", "roundness": 0.5 },
+        "color": { "opacity": 0.7 }
       },
-      physics: {
-        enabled: true,
-        stabilization: { iterations: 150 },
-        barnesHut: { gravitationalConstant: -8000, springLength: 140, springConstant: 0.03, damping: 0.85 }
+      "physics": {
+        "enabled": true,
+        "stabilization": { "iterations": 150 },
+        "barnesHut": {
+          "gravitationalConstant": -8000,
+          "springLength": 140,
+          "springConstant": 0.03,
+          "damping": 0.85
+        }
       },
-      interaction: {
-        hover: true,
-        tooltipDelay: 120,
-        dragNodes: true,
-        selectable: true,
-        multiselect: true,
-        zoomView: true
+      "interaction": {
+        "hover": true,
+        "tooltipDelay": 120,
+        "dragNodes": true,
+        "selectable": true,
+        "multiselect": true,
+        "zoomView": true
       }
     }
     """)
+
 
     # salvar HTML temporário e incorporar
     html_path = "graph_prec_ws.html"
