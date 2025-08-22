@@ -356,17 +356,18 @@ else:
     options = {
         "nodes": {
             "borderWidth": 1,
-            "shadow": False
+            "shadow": False,
+            "font": {"multi": True}       # opcional para nós
         },
         "edges": {
             "smooth": {"type": "dynamic", "roundness": 0.5},
-            "color": {"opacity": 0.7}
+            "color": {"opacity": 0.7},
+            "font": {"multi": True}       # 👈 permite múltiplas linhas
         },
         "physics": {
             "enabled": True,
             "stabilization": {"iterations": 150},
             "barnesHut": {
-                # use os sliders da sidebar aqui:
                 "gravitationalConstant": int(gravity),
                 "springLength": int(spring_length),
                 "springConstant": float(spring_const),
@@ -382,6 +383,7 @@ else:
             "zoomView": True
         }
     }
+
     
     net.set_options(json.dumps(options))
 
