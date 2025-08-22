@@ -365,15 +365,16 @@ else:
 
     
     # Renderizar
-    net.save_graph("graph.html")
-    st.components.v1.html(open("graph.html").read(), height=800, scrolling=True)
+    #net.save_graph("graph.html")
+    #st.components.v1.html(open("graph.html").read(), height=800, scrolling=True)
 
-    # salvar HTML temporário e incorporar
+    # Renderizar apenas uma vez
     html_path = "graph_prec_ws.html"
     net.save_graph(html_path)
     with open(html_path, "r", encoding="utf-8") as f:
         html = f.read()
     components.html(html, height=720, scrolling=True)
+
 
     # 5) Download das tabelas (arestas e nós)
     st.markdown("**Downloads (dados do grafo filtrado):**")
