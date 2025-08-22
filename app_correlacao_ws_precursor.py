@@ -316,31 +316,34 @@ else:
 
     # 3c) Arestas (peso = frequência; tooltip com stats)
     for _, r in edges_df.iterrows():
-        value_for_label = r[edge_label_metric]
-        label_str = f"{value_for_label:.2f}" if isinstance(value_for_label, float) else str(int(value_for_label))
-        
-        edge_kwargs = {
-            "value": int(r["Frequencia"]),
-            "title": title,
-            "width": float(1 + np.log1p(int(r["Frequencia"])))
-        }
-        if show_edge_labels:
-            edge_kwargs["label"] = label_str  # <- imprime na aresta
-        
-        G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", **edge_kwargs)
-        hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
-        freq = int(r["Frequencia"])
-        ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
-        pr_med, pr_max = float(r["Prec_Sim_med"]), float(r["Prec_Sim_max"])
-        title = (
-            f"<b>{prec} [{hto}]</b> ↔ <b>{ws}</b><br>"
-            f"Frequência: {freq}<br>"
-            f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}<br>"
-            f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}<br>"
-            f"Relatórios: {r['Reports']}"
+    hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
+    freq = int(r["Frequencia"])
+    ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
+    pr_med, pr_max = float(r["Prec_Sim_med"]), float(r["Prec_Sim_max"])
+
+    # defina SEMPRE o título antes de usar
+    title = (
+        f"<b>{prec} [{hto}]</b> ↔ <b>{ws}</b><br>"
+        f"Frequência: {freq}<br>"
+        f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}<br>"
+        f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}<br>"
+        f"Relatórios: {r.get('Reports', '')}"
+    )
+
+    # rótulo opcional na aresta
+    edge_kwargs = {
+        "value": freq,
+        "title": title,
+        "width": float(1 + np.log1p(freq)),
+    }
+    if show_edge_labels:
+        val = r[edge_label_metric]
+        edge_kwargs["label"] = (
+            f"{val:.2f}" if isinstance(val, (float, np.floating)) else str(int(val))
+            if isinstance(val, (int, np.integer)) else str(val)
         )
-        width = 1 + np.log1p(freq)  # espessura pela frequência
-        G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", value=freq, title=title, width=float(width))
+
+    G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", **edge_kwargs)
 
     # 4) Renderizar com PyVis e embutir no Streamlit
     net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222222", directed=False, notebook=False)
