@@ -335,7 +335,7 @@ else:
     """)
 
     # Adiciona painel de configuração da física interativo
-    net.show_buttons(filter_=['physics'])
+    #net.show_buttons(filter_=['physics'])
     
     # Renderizar
     net.save_graph("graph.html")
