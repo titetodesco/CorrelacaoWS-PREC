@@ -436,15 +436,10 @@ else:
 # =====================================
 # 2) Grafo por Relatório (usando df_filt)
 # =====================================
-import json
-import networkx as nx
-from pyvis.network import Network
-import streamlit.components.v1 as components
-
 st.divider()
 st.subheader("🗂️ Grafo por Relatório")
 
-# Relatórios disponíveis APÓS filtros globais (df_filt já filtrado por evidência, sim e etc.)
+# Relatórios disponíveis APÓS filtros globais (df_filt já filtrado por evidência, sim etc.)
 reports_available = sorted(df_filt["Report"].dropna().unique().tolist())
 if not reports_available:
     st.info("Nenhum relatório disponível com os filtros atuais. Ajuste os filtros na barra lateral.")
@@ -483,24 +478,23 @@ else:
             st.info("Sem nós/arestas para este relatório com a frequência mínima atual. Diminua o filtro de frequência.")
         else:
             # -------- Construir grafo --------
+            import networkx as nx, json
+            from pyvis.network import Network
+            import streamlit.components.v1 as components
+
             G2 = nx.Graph()
 
-            # Nó central do relatório
+            # Nó central do RELATÓRIO (✅ corrigido: usar rep_id, não ws_id)
             rep_id = f"R::{sel_report}"
             G2.add_node(
-                ws_id,
-                label=ws,
-                title=(
-                    f"{ws}\n"
-                    f"Frequência: {freq}\n"
-                    f"sim med/máx: {r['WS_Sim_med']:.2f}/{r['WS_Sim_max']:.2f}"
-                ),
-                color="#ff7f00",
-                shape="dot",
-                size=float(size),
-                node_type="ws",
+                rep_id,
+                label=sel_report,
+                title=f"Relatório: {sel_report}",
+                color="#2b7ce9",
+                shape="star",
+                size=25,
+                node_type="report",
             )
-
 
             # Paleta HTO
             HTO_COLORS = {
@@ -511,10 +505,12 @@ else:
 
             # Nós de Precursor + arestas Relatório→Precursor
             for _, r in r2p.iterrows():
-                hto, prec, freq = r["HTO"], r["Precursor"], int(r["Freq"])
+                hto = str(r["HTO"])
+                prec = str(r["Precursor"])
+                freq = int(r["Freq"])
                 p_id = f"P::{hto}::{prec}"
                 size = 10 + 3 * np.log1p(freq)
-                color = HTO_COLORS.get(str(hto), "#6a3d9a")
+                color = HTO_COLORS.get(hto, "#6a3d9a")
 
                 G2.add_node(
                     p_id,
@@ -530,22 +526,24 @@ else:
                     node_type="precursor",
                 )
 
-
                 edge_title = f"{sel_report} → {prec} [{hto}] (freq {freq})"
                 G2.add_edge(rep_id, p_id, value=freq, width=float(1 + np.log1p(freq)), title=edge_title)
 
-            # Nós de WeakSignal + arestas Relatório→WS
+            # Nós de WeakSignal + arestas Relatório→WS  (✅ ws_id definido antes de usar)
             for _, r in r2ws.iterrows():
-                ws, freq = r["WeakSignal"], int(r["Freq"])
+                ws = str(r["WeakSignal"])
+                freq = int(r["Freq"])
                 ws_id = f"WS::{ws}"
                 size = 8 + 3 * np.log1p(freq)
 
                 G2.add_node(
                     ws_id,
                     label=ws,
-                    title=(f"<b>Weak Signal</b>: {ws}<br>"
-                           f"Frequência: {freq}<br>"
-                           f"sim med/máx: {r['WS_Sim_med']:.2f}/{r['WS_Sim_max']:.2f}"),
+                    title=(
+                        f"{ws}\n"
+                        f"Frequência: {freq}\n"
+                        f"sim med/máx: {r['WS_Sim_med']:.2f}/{r['WS_Sim_max']:.2f}"
+                    ),
                     color="#ff7f00",
                     shape="dot",
                     size=float(size),
@@ -561,13 +559,18 @@ else:
             )
             if add_internal_links and not p2ws.empty:
                 for _, r in p2ws.iterrows():
-                    hto, prec, ws, freq = r["HTO"], r["Precursor"], r["WeakSignal"], int(r["Freq"])
+                    hto = str(r["HTO"])
+                    prec = str(r["Precursor"])
+                    ws = str(r["WeakSignal"])
+                    freq = int(r["Freq"])
                     p_id = f"P::{hto}::{prec}"
                     ws_id = f"WS::{ws}"
-                    edge_title = (f"{prec} [{hto}] ↔ {ws}<br>"
-                                  f"freq: {freq}<br>"
-                                  f"WS_sim_med: {r['WS_Sim_med']:.2f} | "
-                                  f"Prec_sim_med: {r['Prec_Sim_med']:.2f}")
+                    edge_title = (
+                        f"{prec} [{hto}] ↔ {ws}\n"
+                        f"freq: {freq}\n"
+                        f"WS_sim_med: {r['WS_Sim_med']:.2f} | "
+                        f"Prec_sim_med: {r['Prec_Sim_med']:.2f}"
+                    )
                     G2.add_edge(p_id, ws_id, value=freq, width=float(1 + np.log1p(freq)), title=edge_title)
 
             # -------- Renderizar com PyVis --------
@@ -576,8 +579,11 @@ else:
 
             options2 = {
                 "nodes": {"borderWidth": 1, "font": {"multi": True}},
-                "edges": {"smooth": {"type": "dynamic", "roundness": 0.5}, "color": {"opacity": 0.75}, "font": {"multi": True}},
-
+                "edges": {
+                    "smooth": {"type": "dynamic", "roundness": 0.5},
+                    "color": {"opacity": 0.75},
+                    "font": {"multi": True}
+                },
                 "physics": {
                     "enabled": True,
                     "stabilization": {"iterations": 120},
@@ -604,6 +610,7 @@ else:
             with open(html_path2, "r", encoding="utf-8") as f:
                 html2 = f.read()
             components.html(html2, height=720, scrolling=True)
+
 
 
 st.dataframe(df_prec, use_container_width=True)
