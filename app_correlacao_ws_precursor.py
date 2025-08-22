@@ -19,15 +19,7 @@ if uploaded is None:
     st.info("Faça upload da planilha consolidada para iniciar.")
     st.stop()
 
-# Tente detectar a aba automaticamente
-try:
-    xls = pd.ExcelFile(uploaded)
-    sheet_options = xls.sheet_names
-    sheet = st.sidebar.selectbox("Aba", options=sheet_options, index=0)
-    df = pd.read_excel(xls, sheet_name=sheet)
-except Exception as e:
-    st.error(f"Erro ao ler planilha: {e}")
-    st.stop()
+TRIPLE_SHEET = "Triple_map"
 
 # Esperado: colunas criadas no bloco 'Triple_map' (ou equivalente)
 # ["Report","Unit","Page","Text","Top_WS","Top_Precursores","Evidencia"]
