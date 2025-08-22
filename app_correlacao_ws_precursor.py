@@ -152,6 +152,14 @@ min_freq = st.sidebar.number_input(
     help="Só mantém pares (HTO, Precursor, WeakSignal) com pelo menos esse nº de ocorrências."
 )
 
+st.sidebar.header("🧮 Rótulos de aresta")
+show_edge_labels = st.sidebar.checkbox("Mostrar rótulo de força na aresta", value=False)
+edge_label_metric = st.sidebar.selectbox(
+    "Métrica do rótulo",
+    ["Frequencia", "WS_Sim_med", "WS_Sim_max", "Prec_Sim_med", "Prec_Sim_max"],
+    index=0,
+    help="Qual valor imprimir na aresta Precursor ↔ WeakSignal"
+)
 
 df_filt = pairs.copy()
 if only_evidence:
