@@ -14,7 +14,7 @@ st.sidebar.header("📄 Dados")
 #uploaded = st.sidebar.file_uploader("Selecione o arquivo `mapeamento_triplice_WS_PREC.xlsx`", type=["xlsx"])
 
 # URLs dos arquivos no GitHub
-uploaded = "https://raw.githubusercontent.com/titetodesco/CorrelacaoWS-PREC/main/mapeamento_triplce_WS_PREC.xlsx
+uploaded = "https://raw.githubusercontent.com/titetodesco/CorrelacaoWS-PREC/main/mapeamento_triplce_WS_PREC.xlsx"
 if uploaded is None:
     st.info("Faça upload da planilha consolidada para iniciar.")
     st.stop()
