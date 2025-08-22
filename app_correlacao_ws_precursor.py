@@ -310,36 +310,40 @@ else:
     net.from_nx(G)
 
     # habilita physics e interação
-    net.set_options("""
-    {
-      "nodes": {
-        "borderWidth": 1,
-        "shadow": false
-      },
-      "edges": {
-        "smooth": { "type": "dynamic", "roundness": 0.5 },
-        "color": { "opacity": 0.7 }
-      },
-      "physics": {
-        "enabled": true,
-        "stabilization": { "iterations": 150 },
-        "barnesHut": {
-          "gravitationalConstant":  {gravity},
-          "springLength": {spring_length},
-          "springConstant": {spring_const},
-          "damping": {damping}
-        }}
-      }},
-      "interaction": {{
-        "hover": true,
-        "navigationButtons": true,
-        "keyboard": true,
-        "selectable": true,
-        "multiselect": true,
-        "zoomView": true
-      }}
-    }}
-    """)
+    import json
+
+    options = {
+        "nodes": {
+            "borderWidth": 1,
+            "shadow": False
+        },
+        "edges": {
+            "smooth": {"type": "dynamic", "roundness": 0.5},
+            "color": {"opacity": 0.7}
+        },
+        "physics": {
+            "enabled": True,
+            "stabilization": {"iterations": 150},
+            "barnesHut": {
+                # use os sliders da sidebar aqui:
+                "gravitationalConstant": int(gravity),
+                "springLength": int(spring_length),
+                "springConstant": float(spring_const),
+                "damping": float(damping)
+            }
+        },
+        "interaction": {
+            "hover": True,
+            "navigationButtons": True,
+            "keyboard": True,
+            "selectable": True,
+            "multiselect": True,
+            "zoomView": True
+        }
+    }
+    
+    net.set_options(json.dumps(options))
+
 
     
     # Renderizar
