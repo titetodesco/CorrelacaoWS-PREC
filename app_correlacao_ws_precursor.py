@@ -431,6 +431,57 @@ else:
 
     st.caption("Dica: ajuste os filtros (similaridade e frequência) na barra lateral para controlar a densidade do grafo.")
 
+# =====================================
+# 2) Grafo por Relatório (novo recurso)
+# =====================================
+
+st.subheader("🔎 Grafo por Relatório")
+
+# a) Seleção do relatório
+reports = df["Report"].dropna().unique()
+selected_report = st.selectbox("Selecione um relatório", reports)
+
+if selected_report:
+    df_report = df[df["Report"] == selected_report]
+
+    # b) Construir grafo
+    net_report = Network(height="600px", width="100%", directed=False)
+
+    # Nó central = relatório
+    net_report.add_node(
+        selected_report,
+        label=selected_report,
+        shape="box",
+        color="#FFD700",
+        title=f"Relatório: {selected_report}"
+    )
+
+    # c) Adicionar Precursores e WS ligados ao relatório
+    for _, row in df_report.iterrows():
+        precursor = row["Top_Precursores"]
+        ws = row["Top_WS"]
+        freq = row.get("Freq", 1)  # caso tenha coluna de frequência
+
+        # Precursor ↔ Relatório
+        net_report.add_node(precursor, label=precursor, color="#87CEFA", title="Precursor")
+        net_report.add_edge(selected_report, precursor, value=freq, title=f"Frequência: {freq}")
+
+        # Weak Signal ↔ Relatório
+        net_report.add_node(ws, label=ws, color="#90EE90", title="Weak Signal")
+        net_report.add_edge(selected_report, ws, value=freq, title=f"Frequência: {freq}")
+
+        # Opcional: ligação Precursor ↔ Weak Signal
+        net_report.add_edge(precursor, ws, value=freq, title=f"Correlação no relatório")
+
+    # Renderizar
+    net_report.set_options("""{
+        "nodes": {"font": {"size": 18}},
+        "edges": {"color": {"inherit": "from"}, "smooth": false}
+    }""")
+
+    html_path = "graph_report.html"
+    net_report.save_graph(html_path)
+    st.components.v1.html(open(html_path).read(), height=800, scrolling=True)
 
 st.dataframe(df_prec, use_container_width=True)
 
