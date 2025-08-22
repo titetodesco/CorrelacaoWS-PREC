@@ -217,6 +217,158 @@ with col2:
 st.divider()
 st.subheader("Tabela detalhada (pares)")
 
+# -----------------------------------------------------------
+# ABA "Grafo" — Rede Precursor (HTO) ↔ WeakSignal (com filtros)
+# -----------------------------------------------------------
+import networkx as nx
+from pyvis.network import Network
+import streamlit.components.v1 as components
+
+st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
+
+# 1) Agregar pares com os filtros globais aplicados
+edges_df = (df_filt
+    .groupby(["HTO","Precursor","WeakSignal"], as_index=False)
+    .agg(Frequencia=("Text","nunique"),
+         WS_Sim_med=("WS_Similarity","mean"),
+         WS_Sim_max=("WS_Similarity","max"),
+         Prec_Sim_med=("Precursor_Similarity","mean"),
+         Prec_Sim_max=("Precursor_Similarity","max"),
+         Reports=("Report", lambda s: ", ".join(sorted(set(map(str,s)))[:8])))
+)
+
+# 2) Aplicar corte pela frequência mínima
+edges_df = edges_df[edges_df["Frequencia"] >= int(min_freq)].copy()
+
+if edges_df.empty:
+    st.info("Nenhuma aresta atende aos filtros atuais (verifique frequência mínima e limiares de similaridade).")
+else:
+    # 3) Construir grafo bipartido
+    G = nx.Graph()
+
+    # paleta por HTO (ajuste se desejar)
+    HTO_COLORS = {
+        "Humano": "#1f78b4",
+        "Técnico": "#33a02c",
+        "Tecnico": "#33a02c",     # caso venha sem acento
+        "Organizacional": "#e31a1c",
+        "Organizacinal": "#e31a1c"  # tolerância a typo comum
+    }
+    WS_COLOR = "#ff7f00"
+
+    # graus acumulados para dimensionar nós
+    freq_by_prec = edges_df.groupby(["HTO","Precursor"])["Frequencia"].sum().to_dict()
+    freq_by_ws   = edges_df.groupby("WeakSignal")["Frequencia"].sum().to_dict()
+
+    # 3a) Nós de Precursor (com HTO)
+    for (hto, prec), freq_sum in freq_by_prec.items():
+        color = HTO_COLORS.get(str(hto), "#6a3d9a")
+        size = 10 + 3 * np.log1p(freq_sum)   # escala suave pelo log da frequência somada
+        G.add_node(
+            f"P::{hto}::{prec}",
+            label=f"{prec} [{hto}]",
+            title=f"<b>Precursor</b>: {prec}<br><b>HTO</b>: {hto}<br><b>Freq total</b>: {freq_sum}",
+            color=color, shape="dot", size=float(size), group=str(hto), node_type="precursor"
+        )
+
+    # 3b) Nós de WeakSignal
+    for ws, freq_sum in freq_by_ws.items():
+        size = 8 + 3 * np.log1p(freq_sum)
+        G.add_node(
+            f"WS::{ws}",
+            label=ws,
+            title=f"<b>Weak Signal</b>: {ws}<br><b>Freq total</b>: {freq_sum}",
+            color=WS_COLOR, shape="dot", size=float(size), group="WS", node_type="ws"
+        )
+
+    # 3c) Arestas (peso = frequência; tooltip com stats)
+    for _, r in edges_df.iterrows():
+        hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
+        freq = int(r["Frequencia"])
+        ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
+        pr_med, pr_max = float(r["Prec_Sim_med"]), float(r["Prec_Sim_max"])
+        title = (
+            f"<b>{prec} [{hto}]</b> ↔ <b>{ws}</b><br>"
+            f"Frequência: {freq}<br>"
+            f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}<br>"
+            f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}<br>"
+            f"Relatórios: {r['Reports']}"
+        )
+        width = 1 + np.log1p(freq)  # espessura pela frequência
+        G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", value=freq, title=title, width=float(width))
+
+    # 4) Renderizar com PyVis e embutir no Streamlit
+    net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222222", directed=False, notebook=False)
+    net.barnes_hut(gravity=-2000, central_gravity=0.2, spring_length=120, spring_strength=0.045, damping=0.9)
+    net.from_nx(G)
+
+    # habilita physics e interação
+    net.set_options("""
+    const options = {
+      nodes: {
+        borderWidth: 1,
+        shadow: false
+      },
+      edges: {
+        smooth: { type: "dynamic", roundness: 0.5 },
+        color: { opacity: 0.7 }
+      },
+      physics: {
+        enabled: true,
+        stabilization: { iterations: 150 },
+        barnesHut: { gravitationalConstant: -8000, springLength: 140, springConstant: 0.03, damping: 0.85 }
+      },
+      interaction: {
+        hover: true,
+        tooltipDelay: 120,
+        dragNodes: true,
+        selectable: true,
+        multiselect: true,
+        zoomView: true
+      }
+    }
+    """)
+
+    # salvar HTML temporário e incorporar
+    html_path = "graph_prec_ws.html"
+    net.save_graph(html_path)
+    with open(html_path, "r", encoding="utf-8") as f:
+        html = f.read()
+    components.html(html, height=720, scrolling=True)
+
+    # 5) Download das tabelas (arestas e nós)
+    st.markdown("**Downloads (dados do grafo filtrado):**")
+    colA, colB = st.columns(2)
+    with colA:
+        st.download_button(
+            "📥 Arestas (CSV)",
+            data=edges_df.to_csv(index=False).encode("utf-8"),
+            file_name="edges_precursor_ws.csv",
+            mime="text/csv"
+        )
+    # construir tabela de nós para download
+    nodes_rows = []
+    for nid, attrs in G.nodes(data=True):
+        nodes_rows.append({
+            "node_id": nid,
+            "label": attrs.get("label",""),
+            "group": attrs.get("group",""),
+            "node_type": attrs.get("node_type",""),
+            "size": attrs.get("size",""),
+            "color": attrs.get("color","")
+        })
+    nodes_df = pd.DataFrame(nodes_rows)
+    with colB:
+        st.download_button(
+            "📥 Nós (CSV)",
+            data=nodes_df.to_csv(index=False).encode("utf-8"),
+            file_name="nodes_precursor_ws.csv",
+            mime="text/csv"
+        )
+
+    st.caption("Dica: ajuste os filtros (similaridade e frequência) na barra lateral para controlar a densidade do grafo.")
+
+
 st.dataframe(df_prec, use_container_width=True)
 
 # Download do recorte atual (precursor)
