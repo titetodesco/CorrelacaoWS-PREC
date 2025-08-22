@@ -432,13 +432,9 @@ else:
     st.caption("Dica: ajuste os filtros (similaridade e frequência) na barra lateral para controlar a densidade do grafo.")
 
 # =====================================
-# 2) Grafo por Relatório (novo recurso)
+# 2) Grafo por Relatório (usando df_filt)
 # =====================================
-
-# =====================================
-# 2) Grafo por Relatório (robusto)
-# =====================================
-import re, json
+import json
 import networkx as nx
 from pyvis.network import Network
 import streamlit.components.v1 as components
@@ -446,217 +442,157 @@ import streamlit.components.v1 as components
 st.divider()
 st.subheader("🗂️ Grafo por Relatório")
 
-# --- helpers de parse (use estas se não as tiver acima) ---
-def parse_ws_list(s: str):
-    if not isinstance(s, str) or not s.strip():
-        return []
-    out = []
-    for part in s.split(";"):
-        t = part.strip()
-        if not t:
-            continue
-        m = re.match(r"(.+?)\s*\(([-+]?\d*\.?\d+)\)\s*$", t)
-        if m:
-            name = m.group(1).strip()
-            try:
-                score = float(m.group(2))
-            except:
-                score = float("nan")
-            out.append((name, score))
-        else:
-            out.append((t, float("nan")))
-    return out
-
-def parse_prec_list(s: str):
-    if not isinstance(s, str) or not s.strip():
-        return []
-    out = []
-    for part in s.split(";"):
-        t = part.strip()
-        if not t:
-            continue
-        # "Prec [HTO] (0.73)"
-        m = re.match(r"(.+?)\s*\[([^\]]+)\]\s*\(([-+]?\d*\.?\d+)\)\s*$", t)
-        if m:
-            name = m.group(1).strip()
-            hto  = m.group(2).strip()
-            try:
-                score = float(m.group(3))
-            except:
-                score = float("nan")
-            out.append((name, hto, score))
-        else:
-            # fallback: permitir sem score
-            m2 = re.match(r"(.+?)\s*\[([^\]]+)\]\s*(?:\(([-+]?\d*\.?\d+)\))?\s*$", t)
-            if m2:
-                name = m2.group(1).strip()
-                hto  = m2.group(2).strip()
-                score = float(m2.group(3)) if m2.group(3) else float("nan")
-                out.append((name, hto, score))
-    return out
-# -----------------------------------------------------------
-
-# Relatórios disponíveis APÓS filtros globais (df_filt já aplicado antes)
+# Relatórios disponíveis APÓS filtros globais (df_filt já filtrado por evidência, sim e etc.)
 reports_available = sorted(df_filt["Report"].dropna().unique().tolist())
 if not reports_available:
-    st.info("Nenhum relatório disponível com os filtros atuais.")
+    st.info("Nenhum relatório disponível com os filtros atuais. Ajuste os filtros na barra lateral.")
 else:
     sel_report = st.selectbox("Escolha o relatório", options=reports_available, index=0)
-    sub = df_filt[df_filt["Report"] == sel_report].copy()
+    df_rep = df_filt[df_filt["Report"] == sel_report].copy()
 
-    # Explodir para pares atômicos dentro do relatório
-    rows_rep = []
-    for _, r in sub.iterrows():
-        ws_list = parse_ws_list(r.get("Top_WS", ""))
-        pr_list = parse_prec_list(r.get("Top_Precursores", ""))
-        if not ws_list and not pr_list:
-            continue
-        # queremos pelo menos ligar Report->Precursor e Report->WS,
-        # e opcionalmente Precursor<->WS
-        for (p_name, p_hto, p_sim) in pr_list or [("", "", float("nan"))]:
-            if p_name:
-                rows_rep.append({
-                    "Type": "R2P",
-                    "Report": r.get("Report"),
-                    "Precursor": p_name,
-                    "HTO": p_hto,
-                    "Prec_Sim": p_sim,
-                    "Text": r.get("Text")
-                })
-        for (w_name, w_sim) in ws_list or [("", float("nan"))]:
-            if w_name:
-                rows_rep.append({
-                    "Type": "R2WS",
-                    "Report": r.get("Report"),
-                    "WeakSignal": w_name,
-                    "WS_Sim": w_sim,
-                    "Text": r.get("Text")
-                })
-        # ligações internas P<->WS (opcional)
-        for (p_name, p_hto, p_sim) in pr_list:
-            for (w_name, w_sim) in ws_list:
-                rows_rep.append({
-                    "Type": "P2WS",
-                    "Report": r.get("Report"),
-                    "Precursor": p_name,
-                    "HTO": p_hto,
-                    "WeakSignal": w_name,
-                    "Prec_Sim": p_sim,
-                    "WS_Sim": w_sim,
-                    "Text": r.get("Text")
-                })
-
-    df_rep_pairs = pd.DataFrame(rows_rep)
-
-    if df_rep_pairs.empty:
-        st.info("Este relatório não possui pares depois dos filtros aplicados.")
+    if df_rep.empty:
+        st.info("Este relatório não possui pares depois dos filtros aplicados. Tente reduzir os limiares ou a frequência mínima.")
     else:
-        # Agregações para dimensionar nós e arestas (contagem por textos distintos)
+        # -------- Agregações para dimensionar nós e arestas --------
         # Report -> Precursor
-        r2p = (df_rep_pairs[df_rep_pairs["Type"]=="R2P"]
-               .groupby(["Report","HTO","Precursor"], as_index=False)
-               .agg(Freq=("Text","nunique"),
-                    Prec_Sim_med=("Prec_Sim","mean"),
-                    Prec_Sim_max=("Prec_Sim","max")))
-        # Report -> WS
-        r2ws = (df_rep_pairs[df_rep_pairs["Type"]=="R2WS"]
-                .groupby(["Report","WeakSignal"], as_index=False)
-                .agg(Freq=("Text","nunique"),
-                     WS_Sim_med=("WS_Sim","mean"),
-                     WS_Sim_max=("WS_Sim","max")))
-        # Precursor <-> WS (interno ao relatório)
-        p2ws = (df_rep_pairs[df_rep_pairs["Type"]=="P2WS"]
-                .groupby(["HTO","Precursor","WeakSignal"], as_index=False)
-                .agg(Freq=("Text","nunique"),
-                     Prec_Sim_med=("Prec_Sim","mean"),
-                     WS_Sim_med=("WS_Sim","mean")))
+        r2p = (df_rep.groupby(["Report","HTO","Precursor"], as_index=False)
+                      .agg(Freq=("Text","nunique"),
+                           Prec_Sim_med=("Precursor_Similarity","mean"),
+                           Prec_Sim_max=("Precursor_Similarity","max")))
 
-        # Construir grafo
-        G2 = nx.Graph()
-        # nó central do relatório (ID string)
-        rep_id = f"R::{sel_report}"
-        G2.add_node(rep_id, label=sel_report, title=f"<b>Relatório</b>: {sel_report}",
-                    color="#2b7ce9", shape="star", size=25, node_type="report")
+        # Report -> WeakSignal
+        r2ws = (df_rep.groupby(["Report","WeakSignal"], as_index=False)
+                       .agg(Freq=("Text","nunique"),
+                            WS_Sim_med=("WS_Similarity","mean"),
+                            WS_Sim_max=("WS_Similarity","max")))
 
-        # paleta HTO
-        HTO_COLORS = {
-            "Humano": "#1f78b4",
-            "Técnico": "#33a02c", "Tecnico": "#33a02c",
-            "Organizacional": "#e31a1c"
-        }
+        # Precursor <-> WeakSignal dentro do relatório
+        p2ws = (df_rep.groupby(["HTO","Precursor","WeakSignal"], as_index=False)
+                       .agg(Freq=("Text","nunique"),
+                            Prec_Sim_med=("Precursor_Similarity","mean"),
+                            WS_Sim_med=("WS_Similarity","mean")))
 
-        # Nós de Precursor + arestas R→P
-        for _, r in r2p.iterrows():
-            hto, prec, freq = r["HTO"], r["Precursor"], int(r["Freq"])
-            p_id = f"P::{hto}::{prec}"  # ID canônico (sempre string)
-            size = 10 + 3 * np.log1p(freq)
-            color = HTO_COLORS.get(str(hto), "#6a3d9a")
+        # Aplicar corte por frequência mínima (usa o mesmo min_freq da sidebar)
+        r2p = r2p[r2p["Freq"] >= int(min_freq)]
+        r2ws = r2ws[r2ws["Freq"] >= int(min_freq)]
+        p2ws = p2ws[p2ws["Freq"] >= int(min_freq)]
+
+        if r2p.empty and r2ws.empty:
+            st.info("Sem nós/arestas para este relatório com a frequência mínima atual. Diminua o filtro de frequência.")
+        else:
+            # -------- Construir grafo --------
+            G2 = nx.Graph()
+
+            # Nó central do relatório
+            rep_id = f"R::{sel_report}"
             G2.add_node(
-                p_id,
-                label=f"{prec} [{hto}]",
-                title=(f"<b>Precursor</b>: {prec} [{hto}]<br>"
-                       f"Frequência: {freq}<br>"
-                       f"sim med/máx: {r['Prec_Sim_med']:.2f}/{r['Prec_Sim_max']:.2f}"),
-                color=color, shape="dot", size=float(size), node_type="precursor"
+                rep_id,
+                label=sel_report,
+                title=f"<b>Relatório</b>: {sel_report}",
+                color="#2b7ce9",
+                shape="star",
+                size=25,
+                node_type="report",
             )
-            title = f"{sel_report} → {prec} [{hto}] (freq {freq})"
-            G2.add_edge(rep_id, p_id, value=freq, width=float(1 + np.log1p(freq)), title=title)
 
-        # Nós de WeakSignal + arestas R→WS
-        for _, r in r2ws.iterrows():
-            ws, freq = r["WeakSignal"], int(r["Freq"])
-            ws_id = f"WS::{ws}"
-            size = 8 + 3 * np.log1p(freq)
-            G2.add_node(
-                ws_id,
-                label=ws,
-                title=(f"<b>Weak Signal</b>: {ws}<br>"
-                       f"Frequência: {freq}<br>"
-                       f"sim med/máx: {r['WS_Sim_med']:.2f}/{r['WS_Sim_max']:.2f}"),
-                color="#ff7f00", shape="dot", size=float(size), node_type="ws"
-            )
-            title = f"{sel_report} → {ws} (freq {freq})"
-            G2.add_edge(rep_id, ws_id, value=freq, width=float(1 + np.log1p(freq)), title=title)
+            # Paleta HTO
+            HTO_COLORS = {
+                "Humano": "#1f78b4",
+                "Técnico": "#33a02c", "Tecnico": "#33a02c",
+                "Organizacional": "#e31a1c",
+            }
 
-        # (Opcional) Arestas Precursor ↔ WS dentro do relatório
-        add_internal_links = st.checkbox("Mostrar ligações Precursor ↔ Weak Signal dentro do relatório", value=True)
-        if add_internal_links:
-            for _, r in p2ws.iterrows():
-                hto, prec, ws, freq = r["HTO"], r["Precursor"], r["WeakSignal"], int(r["Freq"])
+            # Nós de Precursor + arestas Relatório→Precursor
+            for _, r in r2p.iterrows():
+                hto, prec, freq = r["HTO"], r["Precursor"], int(r["Freq"])
                 p_id = f"P::{hto}::{prec}"
+                size = 10 + 3 * np.log1p(freq)
+                color = HTO_COLORS.get(str(hto), "#6a3d9a")
+
+                G2.add_node(
+                    p_id,
+                    label=f"{prec} [{hto}]",
+                    title=(f"<b>Precursor</b>: {prec} [{hto}]<br>"
+                           f"Frequência: {freq}<br>"
+                           f"sim med/máx: {r['Prec_Sim_med']:.2f}/{r['Prec_Sim_max']:.2f}"),
+                    color=color,
+                    shape="dot",
+                    size=float(size),
+                    node_type="precursor",
+                )
+
+                edge_title = f"{sel_report} → {prec} [{hto}] (freq {freq})"
+                G2.add_edge(rep_id, p_id, value=freq, width=float(1 + np.log1p(freq)), title=edge_title)
+
+            # Nós de WeakSignal + arestas Relatório→WS
+            for _, r in r2ws.iterrows():
+                ws, freq = r["WeakSignal"], int(r["Freq"])
                 ws_id = f"WS::{ws}"
-                title = (f"{prec} [{hto}] ↔ {ws}<br>"
-                         f"freq: {freq}<br>"
-                         f"WS_sim_med: {r['WS_Sim_med']:.2f} | "
-                         f"Prec_sim_med: {r['Prec_Sim_med']:.2f}")
-                G2.add_edge(p_id, ws_id, value=freq, width=float(1 + np.log1p(freq)), title=title)
+                size = 8 + 3 * np.log1p(freq)
 
-        # Renderizar com opções de física (reutiliza sliders)
-        net2 = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222")
-        net2.from_nx(G2)
-        options2 = {
-            "nodes": {"borderWidth": 1},
-            "edges": {"smooth": {"type": "dynamic", "roundness": 0.5}, "color": {"opacity": 0.75}},
-            "physics": {
-                "enabled": True,
-                "stabilization": {"iterations": 120},
-                "barnesHut": {
-                    "gravitationalConstant": int(gravity),
-                    "springLength": int(spring_length),
-                    "springConstant": float(spring_const),
-                    "damping": float(damping)
-                }
-            },
-            "interaction": {"hover": True, "navigationButtons": True, "keyboard": True,
-                            "selectable": True, "multiselect": True, "zoomView": True}
-        }
-        net2.set_options(json.dumps(options2))
+                G2.add_node(
+                    ws_id,
+                    label=ws,
+                    title=(f"<b>Weak Signal</b>: {ws}<br>"
+                           f"Frequência: {freq}<br>"
+                           f"sim med/máx: {r['WS_Sim_med']:.2f}/{r['WS_Sim_max']:.2f}"),
+                    color="#ff7f00",
+                    shape="dot",
+                    size=float(size),
+                    node_type="ws",
+                )
 
-        html_path2 = "graph_report_view.html"
-        net2.save_graph(html_path2)
-        with open(html_path2, "r", encoding="utf-8") as f:
-            html2 = f.read()
-        components.html(html2, height=720, scrolling=True)
+                edge_title = f"{sel_report} → {ws} (freq {freq})"
+                G2.add_edge(rep_id, ws_id, value=freq, width=float(1 + np.log1p(freq)), title=edge_title)
+
+            # (Opcional) Arestas Precursor ↔ WeakSignal dentro do relatório
+            add_internal_links = st.checkbox(
+                "Mostrar ligações Precursor ↔ Weak Signal dentro do relatório", value=True
+            )
+            if add_internal_links and not p2ws.empty:
+                for _, r in p2ws.iterrows():
+                    hto, prec, ws, freq = r["HTO"], r["Precursor"], r["WeakSignal"], int(r["Freq"])
+                    p_id = f"P::{hto}::{prec}"
+                    ws_id = f"WS::{ws}"
+                    edge_title = (f"{prec} [{hto}] ↔ {ws}<br>"
+                                  f"freq: {freq}<br>"
+                                  f"WS_sim_med: {r['WS_Sim_med']:.2f} | "
+                                  f"Prec_sim_med: {r['Prec_Sim_med']:.2f}")
+                    G2.add_edge(p_id, ws_id, value=freq, width=float(1 + np.log1p(freq)), title=edge_title)
+
+            # -------- Renderizar com PyVis --------
+            net2 = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222")
+            net2.from_nx(G2)
+
+            options2 = {
+                "nodes": {"borderWidth": 1},
+                "edges": {"smooth": {"type": "dynamic", "roundness": 0.5}, "color": {"opacity": 0.75}},
+                "physics": {
+                    "enabled": True,
+                    "stabilization": {"iterations": 120},
+                    "barnesHut": {
+                        "gravitationalConstant": int(gravity),
+                        "springLength": int(spring_length),
+                        "springConstant": float(spring_const),
+                        "damping": float(damping),
+                    },
+                },
+                "interaction": {
+                    "hover": True,
+                    "navigationButtons": True,
+                    "keyboard": True,
+                    "selectable": True,
+                    "multiselect": True,
+                    "zoomView": True,
+                },
+            }
+            net2.set_options(json.dumps(options2))
+
+            html_path2 = "graph_report_view.html"
+            net2.save_graph(html_path2)
+            with open(html_path2, "r", encoding="utf-8") as f:
+                html2 = f.read()
+            components.html(html2, height=720, scrolling=True)
 
 
 st.dataframe(df_prec, use_container_width=True)
