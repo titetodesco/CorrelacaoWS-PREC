@@ -127,6 +127,14 @@ only_evidence = st.sidebar.checkbox("Somente evidência dupla (texto com WS e Pr
 min_ws = st.sidebar.slider("Similaridade mínima (Weak Signal)", 0.0, 0.9, 0.50, 0.05)
 min_prec = st.sidebar.slider("Similaridade mínima (Precursor)", 0.0, 0.9, 0.50, 0.05)
 
+# 🔽 NOVO: Filtro por frequência mínima do trio (HTO, Precursor, WeakSignal)
+min_freq = st.sidebar.number_input(
+    "Frequência mínima (nº de textos/relatórios)",
+    min_value=1, max_value=100, value=1, step=1,
+    help="Só mantém pares (HTO, Precursor, WeakSignal) com pelo menos esse nº de ocorrências."
+)
+
+
 df_filt = pairs.copy()
 if only_evidence:
     df_filt = df_filt[df_filt["Evidencia"].astype(str).str.len() > 0]
@@ -157,6 +165,9 @@ df_prec = (df_filt[(df_filt["HTO"]==sel_ht) & (df_filt["Precursor"]==sel_prec)]
                 Reports=("Report", lambda s: ", ".join(sorted(set(map(str,s)))[:10])))
            .sort_values(["Frequencia","WS_Sim_max","Prec_Sim_max"], ascending=[False,False,False])
 )
+
+# 🔽 NOVO: mantém apenas sinais com Frequencia >= min_freq
+df_prec = df_prec[df_prec["Frequencia"] >= int(min_freq)]
 
 col1, col2 = st.columns([2,1], vertical_alignment="top")
 with col1:
