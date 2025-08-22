@@ -316,34 +316,34 @@ else:
 
     # 3c) Arestas (peso = frequência; tooltip com stats)
     for _, r in edges_df.iterrows():
-    hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
-    freq = int(r["Frequencia"])
-    ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
-    pr_med, pr_max = float(r["Prec_Sim_med"]), float(r["Prec_Sim_max"])
-
-    # defina SEMPRE o título antes de usar
-    title = (
-        f"<b>{prec} [{hto}]</b> ↔ <b>{ws}</b><br>"
-        f"Frequência: {freq}<br>"
-        f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}<br>"
-        f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}<br>"
-        f"Relatórios: {r.get('Reports', '')}"
-    )
-
-    # rótulo opcional na aresta
-    edge_kwargs = {
-        "value": freq,
-        "title": title,
-        "width": float(1 + np.log1p(freq)),
-    }
-    if show_edge_labels:
-        val = r[edge_label_metric]
-        edge_kwargs["label"] = (
-            f"{val:.2f}" if isinstance(val, (float, np.floating)) else str(int(val))
-            if isinstance(val, (int, np.integer)) else str(val)
+        hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
+        freq = int(r["Frequencia"])
+        ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
+        pr_med, pr_max = float(r["Prec_Sim_med"]), float(r["Prec_Sim_max"])
+    
+        # defina SEMPRE o título antes de usar
+        title = (
+            f"<b>{prec} [{hto}]</b> ↔ <b>{ws}</b><br>"
+            f"Frequência: {freq}<br>"
+            f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}<br>"
+            f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}<br>"
+            f"Relatórios: {r.get('Reports', '')}"
         )
-
-    G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", **edge_kwargs)
+    
+        # rótulo opcional na aresta
+        edge_kwargs = {
+            "value": freq,
+            "title": title,
+            "width": float(1 + np.log1p(freq)),
+        }
+        if show_edge_labels:
+            val = r[edge_label_metric]
+            edge_kwargs["label"] = (
+                f"{val:.2f}" if isinstance(val, (float, np.floating)) else str(int(val))
+                if isinstance(val, (int, np.integer)) else str(val)
+            )
+    
+        G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", **edge_kwargs)
 
     # 4) Renderizar com PyVis e embutir no Streamlit
     net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222222", directed=False, notebook=False)
