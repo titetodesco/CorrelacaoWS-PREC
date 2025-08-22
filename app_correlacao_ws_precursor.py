@@ -214,6 +214,13 @@ with col2:
             )
             st.plotly_chart(fig2, use_container_width=True, theme="streamlit")
 
+st.sidebar.header("⚙️ Física do grafo")
+gravity = st.sidebar.slider("Gravidade (negativo = repulsa)", -20000, -500, -8000, 500)
+spring_length = st.sidebar.slider("Comprimento da mola", 60, 300, 140, 10)
+spring_const = st.sidebar.slider("Constante da mola", 0.01, 0.20, 0.03, 0.01)
+damping = st.sidebar.slider("Damping", 0.60, 0.95, 0.85, 0.01)
+
+
 st.divider()
 st.subheader("Tabela detalhada (pares)")
 
@@ -317,25 +324,23 @@ else:
         "enabled": true,
         "stabilization": { "iterations": 150 },
         "barnesHut": {
-          "gravitationalConstant": -8000,
-          "springLength": 140,
-          "springConstant": 0.03,
-          "damping": 0.85
-        }
-      },
-      "interaction": {
+          "gravitationalConstant":  {gravity},
+          "springLength": {spring_length},
+          "springConstant": {spring_const},
+          "damping": {damping}
+        }}
+      }},
+      "interaction": {{
         "hover": true,
-        "tooltipDelay": 120,
-        "dragNodes": true,
+        "navigationButtons": true,
+        "keyboard": true,
         "selectable": true,
         "multiselect": true,
         "zoomView": true
-      }
-    }
+      }}
+    }}
     """)
 
-    # Adiciona painel de configuração da física interativo
-    #net.show_buttons(filter_=['physics'])
     
     # Renderizar
     net.save_graph("graph.html")
