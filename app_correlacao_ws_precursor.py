@@ -141,6 +141,19 @@ if only_evidence:
 df_filt = df_filt[df_filt["WS_Similarity"].fillna(0) >= float(min_ws)]
 df_filt = df_filt[df_filt["Precursor_Similarity"].fillna(0) >= float(min_prec)]
 
+# Depois de aplicar filtros globais em df_filt, monte um preview com frequência
+preview = (df_filt
+    .groupby(["HTO","Precursor","WeakSignal"], as_index=False)
+    .agg(Frequencia=("Text","nunique"))
+)
+preview = preview[preview["Frequencia"] >= int(min_freq)]
+
+opts = (preview[["HTO","Precursor"]]
+        .drop_duplicates()
+        .sort_values(["HTO","Precursor"]))
+opts["label"] = opts["HTO"] + " — " + opts["Precursor"]
+
+
 # ======= Seletor de precursor =======
 opts = (df_filt[["HTO","Precursor"]]
         .drop_duplicates()
