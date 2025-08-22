@@ -488,14 +488,19 @@ else:
             # Nó central do relatório
             rep_id = f"R::{sel_report}"
             G2.add_node(
-                rep_id,
-                label=sel_report,
-                title=f"<b>Relatório</b>: {sel_report}",
-                color="#2b7ce9",
-                shape="star",
-                size=25,
-                node_type="report",
+                ws_id,
+                label=ws,
+                title=(
+                    f"{ws}\n"
+                    f"Frequência: {freq}\n"
+                    f"sim med/máx: {r['WS_Sim_med']:.2f}/{r['WS_Sim_max']:.2f}"
+                ),
+                color="#ff7f00",
+                shape="dot",
+                size=float(size),
+                node_type="ws",
             )
+
 
             # Paleta HTO
             HTO_COLORS = {
@@ -570,8 +575,9 @@ else:
             net2.from_nx(G2)
 
             options2 = {
-                "nodes": {"borderWidth": 1},
-                "edges": {"smooth": {"type": "dynamic", "roundness": 0.5}, "color": {"opacity": 0.75}},
+                "nodes": {"borderWidth": 1, "font": {"multi": True}},
+                "edges": {"smooth": {"type": "dynamic", "roundness": 0.5}, "color": {"opacity": 0.75}, "font": {"multi": True}},
+
                 "physics": {
                     "enabled": True,
                     "stabilization": {"iterations": 120},
