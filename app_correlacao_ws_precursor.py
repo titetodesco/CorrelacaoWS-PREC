@@ -316,6 +316,18 @@ else:
 
     # 3c) Arestas (peso = frequência; tooltip com stats)
     for _, r in edges_df.iterrows():
+        value_for_label = r[edge_label_metric]
+        label_str = f"{value_for_label:.2f}" if isinstance(value_for_label, float) else str(int(value_for_label))
+        
+        edge_kwargs = {
+            "value": int(r["Frequencia"]),
+            "title": title,
+            "width": float(1 + np.log1p(int(r["Frequencia"])))
+        }
+        if show_edge_labels:
+            edge_kwargs["label"] = label_str  # <- imprime na aresta
+        
+        G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", **edge_kwargs)
         hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
         freq = int(r["Frequencia"])
         ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
