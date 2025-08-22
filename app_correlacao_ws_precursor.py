@@ -323,10 +323,10 @@ else:
     
         # defina SEMPRE o título antes de usar
         title = (
-            f"<b>{prec} [{hto}]</b> ↔ <b>{ws}</b><br>"
-            f"Frequência: {freq}<br>"
-            f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}<br>"
-            f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}<br>"
+            f"{prec} [{hto}] ↔ {ws}\n"
+            f"Frequência: {freq}\n"
+            f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}\n"
+            f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}\n"
             f"Relatórios: {r.get('Reports', '')}"
         )
     
@@ -512,7 +512,7 @@ else:
                 G2.add_node(
                     p_id,
                     label=f"{prec} [{hto}]",
-                    title=(f"<b>Precursor</b>: {prec} [{hto}]<br>"
+                    =(f"<b>Precursor</b>: {prec} [{hto}]<br>"
                            f"Frequência: {freq}<br>"
                            f"sim med/máx: {r['Prec_Sim_med']:.2f}/{r['Prec_Sim_max']:.2f}"),
                     color=color,
