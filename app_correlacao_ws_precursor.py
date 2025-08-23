@@ -250,14 +250,14 @@ damping = st.sidebar.slider("Damping", 0.60, 0.95, 0.85, 0.01)
 st.divider()
 st.subheader("Tabela detalhada (pares)")
 
-    # -----------------------------------------------------------
-    # ABA "Grafo" — Rede Precursor (HTO) ↔ WeakSignal (com filtros)
-    # -----------------------------------------------------------
-    import networkx as nx
-    from pyvis.network import Network
-    import streamlit.components.v1 as components
+# -----------------------------------------------------------
+# ABA "Grafo" — Rede Precursor (HTO) ↔ WeakSignal (com filtros)
+# -----------------------------------------------------------
+import networkx as nx
+from pyvis.network import Network
+import streamlit.components.v1 as components
     
-    st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
+st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
     
     # 1) Agregar pares com os filtros globais aplicados
     edges_df = (df_filt
