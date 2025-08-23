@@ -256,8 +256,8 @@ st.subheader("Tabela detalhada (pares)")
 import networkx as nx
 from pyvis.network import Network
 import streamlit.components.v1 as components
-    
-st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
+
+    st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
     
     # 1) Agregar pares com os filtros globais aplicados
     edges_df = (df_filt
@@ -279,76 +279,74 @@ st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
         # 3) Construir grafo bipartido
         G = nx.Graph()
     
-        # 🎨 Paleta pedida (HTO) + WS
-        HTO_COLORS = {
-            "Humano": "#2ecc71",            # verde
-            "humano": "#2ecc71",
-            "Técnico": "#3498db",           # azul
-            "Tecnico": "#3498db",
-            "técnico": "#3498db",
-            "tecnico": "#3498db",
-            "Organizacional": "#f1c40f",    # amarelo
-            "Organizacinal": "#f1c40f",
-            "organizacional": "#f1c40f",
+    # 🎨 Paleta pedida (HTO) + WS
+    HTO_COLORS = {
+        "Humano": "#2ecc71",            # verde
+        "humano": "#2ecc71",
+        "Técnico": "#3498db",           # azul
+        "Tecnico": "#3498db",
+        "técnico": "#3498db",
+        "tecnico": "#3498db",
+        "Organizacional": "#f1c40f",    # amarelo
+        "Organizacinal": "#f1c40f",
+        "organizacional": "#f1c40f",
+    }
+    WS_COLOR = "#e74c3c"                # vermelho
+    
+    # graus acumulados para dimensionar nós
+    freq_by_prec = edges_df.groupby(["HTO","Precursor"])["Frequencia"].sum().to_dict()
+    freq_by_ws   = edges_df.groupby("WeakSignal")["Frequencia"].sum().to_dict()
+    
+    # 3a) Nós de Precursor (com HTO)
+    for (hto, prec), freq_sum in freq_by_prec.items():
+        hto_key = str(hto)
+        color = HTO_COLORS.get(hto_key, "#6a3d9a")  # fallback roxo
+        size = 10 + 3 * np.log1p(freq_sum)          # escala suave pelo log da frequência somada
+        G.add_node(
+            f"P::{hto}::{prec}",
+            label=f"{prec} [{hto}]",
+            title=f"{prec} [{hto}]\nFreq total: {freq_sum}",
+            color=color, shape="dot", size=float(size), group=hto_key, node_type="precursor"
+        )
+    # 3b) Nós de WeakSignal
+    for ws, freq_sum in freq_by_ws.items():
+        size = 8 + 3 * np.log1p(freq_sum)
+        G.add_node(
+            f"WS::{ws}",
+            label=ws,
+            title=f"{ws}\nFreq total: {freq_sum}",
+            color=WS_COLOR, shape="dot", size=float(size), group="WS", node_type="ws"
+        )
+    
+    # 3c) Arestas (peso = frequência; tooltip com stats)
+    for _, r in edges_df.iterrows():
+        hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
+        freq = int(r["Frequencia"])
+        ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
+        pr_med, pr_max = float(r["Prec_Sim_med"]), float(r["Prec_Sim_max"])
+             # tooltip multilinha (usar \n)
+        title = (
+            f"{prec} [{hto}] ↔ {ws}\n"
+            f"Frequência: {freq}\n"
+            f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}\n"
+            f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}\n"
+            f"Relatórios: {r.get('Reports', '')}"
+        )
+    
+        edge_kwargs = {
+            "value": freq,
+            "title": title,
+            "width": float(1 + np.log1p(freq)),
         }
-        WS_COLOR = "#e74c3c"                # vermelho
-    
-        # graus acumulados para dimensionar nós
-        freq_by_prec = edges_df.groupby(["HTO","Precursor"])["Frequencia"].sum().to_dict()
-        freq_by_ws   = edges_df.groupby("WeakSignal")["Frequencia"].sum().to_dict()
-    
-        # 3a) Nós de Precursor (com HTO)
-        for (hto, prec), freq_sum in freq_by_prec.items():
-            hto_key = str(hto)
-            color = HTO_COLORS.get(hto_key, "#6a3d9a")  # fallback roxo
-            size = 10 + 3 * np.log1p(freq_sum)          # escala suave pelo log da frequência somada
-            G.add_node(
-                f"P::{hto}::{prec}",
-                label=f"{prec} [{hto}]",
-                title=f"{prec} [{hto}]\nFreq total: {freq_sum}",
-                color=color, shape="dot", size=float(size), group=hto_key, node_type="precursor"
+        if show_edge_labels:
+            val = r[edge_label_metric]
+            edge_kwargs["label"] = (
+                f"{val:.2f}" if isinstance(val, (float, np.floating)) else str(int(val))
+                if isinstance(val, (int, np.integer)) else str(val)
             )
     
-        # 3b) Nós de WeakSignal
-        for ws, freq_sum in freq_by_ws.items():
-            size = 8 + 3 * np.log1p(freq_sum)
-            G.add_node(
-                f"WS::{ws}",
-                label=ws,
-                title=f"{ws}\nFreq total: {freq_sum}",
-                color=WS_COLOR, shape="dot", size=float(size), group="WS", node_type="ws"
-            )
-    
-        # 3c) Arestas (peso = frequência; tooltip com stats)
-        for _, r in edges_df.iterrows():
-            hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
-            freq = int(r["Frequencia"])
-            ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
-            pr_med, pr_max = float(r["Prec_Sim_med"]), float(r["Prec_Sim_max"])
-    
-            # tooltip multilinha (usar \n)
-            title = (
-                f"{prec} [{hto}] ↔ {ws}\n"
-                f"Frequência: {freq}\n"
-                f"WS sim (média/máx): {ws_med:.2f} / {ws_max:.2f}\n"
-                f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}\n"
-                f"Relatórios: {r.get('Reports', '')}"
-            )
-    
-            edge_kwargs = {
-                "value": freq,
-                "title": title,
-                "width": float(1 + np.log1p(freq)),
-            }
-            if show_edge_labels:
-                val = r[edge_label_metric]
-                edge_kwargs["label"] = (
-                    f"{val:.2f}" if isinstance(val, (float, np.floating)) else str(int(val))
-                    if isinstance(val, (int, np.integer)) else str(val)
-                )
-    
-            G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", **edge_kwargs)
-    
+        G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", **edge_kwargs)
+ 
         # 4) Renderizar com PyVis e embutir no Streamlit
         net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222222", directed=False, notebook=False)
         net.barnes_hut(gravity=-2000, central_gravity=0.2, spring_length=120, spring_strength=0.045, damping=0.9)
@@ -382,14 +380,15 @@ st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
                 "zoomView": True
             }
         }
-        net.set_options(json.dumps(options))
     
-        # Renderizar apenas uma vez
-        html_path = "graph_prec_ws.html"
-        net.save_graph(html_path)
-        with open(html_path, "r", encoding="utf-8") as f:
-            html = f.read()
-        components.html(html, height=720, scrolling=True)
+    net.set_options(json.dumps(options))
+    
+    # Renderizar apenas uma vez
+    html_path = "graph_prec_ws.html"
+    net.save_graph(html_path)
+    with open(html_path, "r", encoding="utf-8") as f:
+         html = f.read()
+    components.html(html, height=720, scrolling=True)
     
     # (Opcional) legenda visual das cores
     st.markdown(
@@ -403,23 +402,8 @@ st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
         unsafe_allow_html=True
     )
 
-
-    
-    net.set_options(json.dumps(options))
-
-
-    
-    # Renderizar
-    #net.save_graph("graph.html")
-    #st.components.v1.html(open("graph.html").read(), height=800, scrolling=True)
-
-    # Renderizar apenas uma vez
-    html_path = "graph_prec_ws.html"
-    net.save_graph(html_path)
-    with open(html_path, "r", encoding="utf-8") as f:
-        html = f.read()
-    components.html(html, height=720, scrolling=True)
-
+ 
+    #net.set_options(json.dumps(options))
 
     # 5) Download das tabelas (arestas e nós)
     st.markdown("**Downloads (dados do grafo filtrado):**")
