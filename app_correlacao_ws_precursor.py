@@ -378,17 +378,17 @@ else:
         html = f.read()
     components.html(html, height=720, scrolling=True)
 
-# (Opcional) legenda visual das cores
-st.markdown(
-    """
-    **Legenda:** &nbsp;&nbsp;
-    <span style="background:#2ecc71;color:#2ecc71;">██</span> Humano &nbsp;&nbsp;
-    <span style="background:#3498db;color:#3498db;">██</span> Técnico &nbsp;&nbsp;
-    <span style="background:#f1c40f;color:#f1c40f;">██</span> Organizacional &nbsp;&nbsp;
-    <span style="background:#e74c3c;color:#e74c3c;">██</span> Weak Signal
-    """,
-    unsafe_allow_html=True
-)
+    # (Opcional) legenda visual das cores
+    st.markdown(
+        """
+        **Legenda:** &nbsp;&nbsp;
+        <span style="background:#2ecc71;color:#2ecc71;">██</span> Humano &nbsp;&nbsp;
+        <span style="background:#3498db;color:#3498db;">██</span> Técnico &nbsp;&nbsp;
+        <span style="background:#f1c40f;color:#f1c40f;">██</span> Organizacional &nbsp;&nbsp;
+        <span style="background:#e74c3c;color:#e74c3c;">██</span> Weak Signal
+        """,
+        unsafe_allow_html=True
+    )
 
 
  
