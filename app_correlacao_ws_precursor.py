@@ -257,28 +257,28 @@ import networkx as nx
 from pyvis.network import Network
 import streamlit.components.v1 as components
 
-    st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
-    
-    # 1) Agregar pares com os filtros globais aplicados
-    edges_df = (df_filt
-        .groupby(["HTO","Precursor","WeakSignal"], as_index=False)
-        .agg(Frequencia=("Text","nunique"),
-             WS_Sim_med=("WS_Similarity","mean"),
-             WS_Sim_max=("WS_Similarity","max"),
-             Prec_Sim_med=("Precursor_Similarity","mean"),
-             Prec_Sim_max=("Precursor_Similarity","max"),
-             Reports=("Report", lambda s: ", ".join(sorted(set(map(str, s)))[:8])))
-    )
-    
-    # 2) Aplicar corte pela frequência mínima
-    edges_df = edges_df[edges_df["Frequencia"] >= int(min_freq)].copy()
-    
-    if edges_df.empty:
-        st.info("Nenhuma aresta atende aos filtros atuais (verifique frequência mínima e limiares de similaridade).")
-    else:
-        # 3) Construir grafo bipartido
-        G = nx.Graph()
-    
+st.subheader("🕸️ Grafo: Precursores (HTO) ↔ Weak Signals")
+
+# 1) Agregar pares com os filtros globais aplicados
+edges_df = (df_filt
+    .groupby(["HTO","Precursor","WeakSignal"], as_index=False)
+    .agg(Frequencia=("Text","nunique"),
+         WS_Sim_med=("WS_Similarity","mean"),
+         WS_Sim_max=("WS_Similarity","max"),
+         Prec_Sim_med=("Precursor_Similarity","mean"),
+         Prec_Sim_max=("Precursor_Similarity","max"),
+         Reports=("Report", lambda s: ", ".join(sorted(set(map(str, s)))[:8])))
+)
+
+# 2) Aplicar corte pela frequência mínima
+edges_df = edges_df[edges_df["Frequencia"] >= int(min_freq)].copy()
+
+if edges_df.empty:
+    st.info("Nenhuma aresta atende aos filtros atuais (verifique frequência mínima e limiares de similaridade).")
+else:
+    # 3) Construir grafo bipartido
+    G = nx.Graph()
+
     # 🎨 Paleta pedida (HTO) + WS
     HTO_COLORS = {
         "Humano": "#2ecc71",            # verde
@@ -292,22 +292,23 @@ import streamlit.components.v1 as components
         "organizacional": "#f1c40f",
     }
     WS_COLOR = "#e74c3c"                # vermelho
-    
+
     # graus acumulados para dimensionar nós
     freq_by_prec = edges_df.groupby(["HTO","Precursor"])["Frequencia"].sum().to_dict()
     freq_by_ws   = edges_df.groupby("WeakSignal")["Frequencia"].sum().to_dict()
-    
+
     # 3a) Nós de Precursor (com HTO)
     for (hto, prec), freq_sum in freq_by_prec.items():
         hto_key = str(hto)
         color = HTO_COLORS.get(hto_key, "#6a3d9a")  # fallback roxo
-        size = 10 + 3 * np.log1p(freq_sum)          # escala suave pelo log da frequência somada
+        size = 10 + 3 * np.log1p(freq_sum)          # escala suave
         G.add_node(
             f"P::{hto}::{prec}",
             label=f"{prec} [{hto}]",
             title=f"{prec} [{hto}]\nFreq total: {freq_sum}",
             color=color, shape="dot", size=float(size), group=hto_key, node_type="precursor"
         )
+
     # 3b) Nós de WeakSignal
     for ws, freq_sum in freq_by_ws.items():
         size = 8 + 3 * np.log1p(freq_sum)
@@ -317,14 +318,14 @@ import streamlit.components.v1 as components
             title=f"{ws}\nFreq total: {freq_sum}",
             color=WS_COLOR, shape="dot", size=float(size), group="WS", node_type="ws"
         )
-    
+
     # 3c) Arestas (peso = frequência; tooltip com stats)
     for _, r in edges_df.iterrows():
         hto, prec, ws = r["HTO"], r["Precursor"], r["WeakSignal"]
         freq = int(r["Frequencia"])
         ws_med, ws_max = float(r["WS_Sim_med"]), float(r["WS_Sim_max"])
         pr_med, pr_max = float(r["Prec_Sim_med"]), float(r["Prec_Sim_max"])
-             # tooltip multilinha (usar \n)
+
         title = (
             f"{prec} [{hto}] ↔ {ws}\n"
             f"Frequência: {freq}\n"
@@ -332,7 +333,7 @@ import streamlit.components.v1 as components
             f"Prec sim (média/máx): {pr_med:.2f} / {pr_max:.2f}\n"
             f"Relatórios: {r.get('Reports', '')}"
         )
-    
+
         edge_kwargs = {
             "value": freq,
             "title": title,
@@ -344,63 +345,51 @@ import streamlit.components.v1 as components
                 f"{val:.2f}" if isinstance(val, (float, np.floating)) else str(int(val))
                 if isinstance(val, (int, np.integer)) else str(val)
             )
-    
+
         G.add_edge(f"P::{hto}::{prec}", f"WS::{ws}", **edge_kwargs)
- 
-        # 4) Renderizar com PyVis e embutir no Streamlit
-        net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222222", directed=False, notebook=False)
-        net.barnes_hut(gravity=-2000, central_gravity=0.2, spring_length=120, spring_strength=0.045, damping=0.9)
-        net.from_nx(G)
-    
-        # habilita physics e interação (inclui multi-line em tooltips/labels)
-        import json
-        options = {
-            "nodes": {"borderWidth": 1, "shadow": False, "font": {"multi": True}},
-            "edges": {
-                "smooth": {"type": "dynamic", "roundness": 0.5},
-                "color": {"opacity": 0.7},
-                "font": {"multi": True}
-            },
-            "physics": {
-                "enabled": True,
-                "stabilization": {"iterations": 150},
-                "barnesHut": {
-                    "gravitationalConstant": int(gravity),
-                    "springLength": int(spring_length),
-                    "springConstant": float(spring_const),
-                    "damping": float(damping)
-                }
-            },
-            "interaction": {
-                "hover": True,
-                "navigationButtons": True,
-                "keyboard": True,
-                "selectable": True,
-                "multiselect": True,
-                "zoomView": True
+
+    # 4) Renderizar com PyVis e embutir
+    net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222222")
+    net.barnes_hut(gravity=-2000, central_gravity=0.2, spring_length=120, spring_strength=0.045, damping=0.9)
+    net.from_nx(G)
+
+    import json
+    options = {
+        "nodes": {"borderWidth": 1, "shadow": False, "font": {"multi": True}},
+        "edges": {"smooth": {"type": "dynamic", "roundness": 0.5}, "color": {"opacity": 0.7}, "font": {"multi": True}},
+        "physics": {
+            "enabled": True,
+            "stabilization": {"iterations": 150},
+            "barnesHut": {
+                "gravitationalConstant": int(gravity),
+                "springLength": int(spring_length),
+                "springConstant": float(spring_const),
+                "damping": float(damping)
             }
-        }
-    
+        },
+        "interaction": {"hover": True, "navigationButtons": True, "keyboard": True,
+                        "selectable": True, "multiselect": True, "zoomView": True}
+    }
     net.set_options(json.dumps(options))
-    
-    # Renderizar apenas uma vez
+
     html_path = "graph_prec_ws.html"
     net.save_graph(html_path)
     with open(html_path, "r", encoding="utf-8") as f:
-         html = f.read()
+        html = f.read()
     components.html(html, height=720, scrolling=True)
-    
-    # (Opcional) legenda visual das cores
-    st.markdown(
-        """
-        **Legenda:** &nbsp;&nbsp;
-        <span style="background:#2ecc71;color:#2ecc71;">██</span> Humano &nbsp;&nbsp;
-        <span style="background:#3498db;color:#3498db;">██</span> Técnico &nbsp;&nbsp;
-        <span style="background:#f1c40f;color:#f1c40f;">██</span> Organizacional &nbsp;&nbsp;
-        <span style="background:#e74c3c;color:#e74c3c;">██</span> Weak Signal
-        """,
-        unsafe_allow_html=True
-    )
+
+# (Opcional) legenda visual das cores
+st.markdown(
+    """
+    **Legenda:** &nbsp;&nbsp;
+    <span style="background:#2ecc71;color:#2ecc71;">██</span> Humano &nbsp;&nbsp;
+    <span style="background:#3498db;color:#3498db;">██</span> Técnico &nbsp;&nbsp;
+    <span style="background:#f1c40f;color:#f1c40f;">██</span> Organizacional &nbsp;&nbsp;
+    <span style="background:#e74c3c;color:#e74c3c;">██</span> Weak Signal
+    """,
+    unsafe_allow_html=True
+)
+
 
  
     #net.set_options(json.dumps(options))
